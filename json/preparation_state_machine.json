@@ -1,0 +1,229 @@
+{
+  "Comment": "Preparation step function to initiate deployment for services",
+  "StartAt": "PreflightChecks",
+  "States": {
+    "PreflightChecks": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Check1",
+          "States": {
+            "Check1": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:000000000000:function:check1_processor",
+                "Payload.$": "$"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Check2",
+          "States": {
+            "Check2": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:000000000000:function:check2_processor",
+                "Payload.$": "$"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
+      "Next": "HandleSpecificServices"
+    },
+    "HandleSpecificServices": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.service",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.service",
+              "IsNull": true
+            }
+          ],
+          "Next": "HaltProcessing"
+        },
+        {
+          "Variable": "$.service",
+          "StringEquals": "s3",
+          "Next": "Deployer_s3"
+        },
+        {
+          "Variable": "$.service",
+          "StringEquals": "dynamodb",
+          "Next": "Deployer_dynamodb"
+        },
+        {
+          "Variable": "$.service",
+          "StringEquals": "sqs",
+          "Next": "Deployer_sqs"
+        }
+      ]
+    },
+    "Deployer_s3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:000000000000:function:build_template_s3",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Deployer_state_machine_invoker"
+    },
+    "Deployer_dynamodb": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:000000000000:function:build_template_dynamodb",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
+    },
+    "Deployer_sqs": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:000000000000:function:build_template_sqs",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
+    },
+    "HaltProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:000000000000:function:halt_processing_processor",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
+    },
+    "Deployer_state_machine_invoker": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.waitForTaskToken",
+      "Parameters": {
+        "Input": {
+          "itemid.$": "$.itemid",
+          "userid.$": "$.userid",
+          "mappingid.$": "$.mappingid",
+          "filename.$": "$.filename",
+          "service.$": "$.service",
+          "Comment": "Hello world!",
+          "token.$": "$$.Task.Token"
+        },
+        "StateMachineArn": "arn:aws:states:us-east-1:000000000000:stateMachine:deployment_execution_state_machine"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 1
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "Next": "HaltProcessing"
+        }
+      ],
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "Comment": "Preparation step function to initiate deployment for services",
+  "StartAt": "StartDeploymentTask",
+  "States": {
+    "StartDeploymentTask": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.waitForTaskToken",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ${jsonencode(subnets)
+            },
+            "SecurityGroups": [
+              "${securitygroup}"
+            ]
+          }
+        },
+        "LaunchType": "FARGATE",
+        "Cluster": "${ecs_cluster}",
+        "TaskDefinition": "${task_definition_arn}",
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "deployer-task-container",
+              "Environment": [
+                {
+                  "Name": "DEPLOYMENT_USER_ID",
+                  "Value.$": "$.userid"
+                },
+                {
+                  "Name": "DEPLOYMENT_ITEM_ID",
+                  "Value.$": "$.itemid"
+                },
+                {
+                  "Name": "DEPLOYMENT_MAPPING_ID",
+                  "Value.$": "$.mappingid"
+                },
+                {
+                  "Name": "DEPLOYMENT_FILENAME",
+                  "Value.$": "$.filename"
+                },
+                {
+                  "Name": "DEPLOYMENT_SERVICE",
+                  "Value.$": "$.service"
+                },
+                {
+                  "Name": "REST_API_ID",
+                  "Value.$": "$.restapiid"
+                },
+                {
+                  "Name": "LOCALSTACK_HOSTNAME",
+                  "Value.$": "$.localstack_hostname"
+                }
+              ]
+            }
+          ]
+        }
+      },
+
+      "End": true
+    }
+  }
+}

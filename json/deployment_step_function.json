@@ -1,0 +1,30 @@
+{
+    "Comment" : "Preparation step function to initiate deployment for services",
+    "StartAt" : "StartDeploymentTask",
+    "States" : {
+      "StartDeploymentTask": {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "OutputPath" : "$.Payload",
+        "Parameters" : {
+          "FunctionName" : "${functionname}",
+          "Payload.$" : "$"
+        },
+        "Retry" : [
+          {
+            "ErrorEquals" : [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds" : 2,
+            "MaxAttempts" : 6,
+            "BackoffRate" : 2
+          }
+        ],
+        "End" : true
+      }
+    }
+
+}
